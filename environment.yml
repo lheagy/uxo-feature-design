@@ -1,4 +1,4 @@
-name: dc-casing-environment
+name: uxo
 
 channels:
   - conda-forge
@@ -12,3 +12,4 @@ dependencies:
   - geoana
   - discretize
   - pytest
+  - pytest-cov
