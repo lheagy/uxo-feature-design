@@ -29,8 +29,8 @@ with open("README.md") as f:
     LONG_DESCRIPTION = "".join(f.readlines())
 
 setup(
-    name="SimPEG",
-    version="0.17.0",
+    name="polarizability_model",
+    version="0.0.1",
     packages=find_packages(exclude=["tests*", "notebooks*"]),
     install_requires=[
         "numpy>=1.7",
