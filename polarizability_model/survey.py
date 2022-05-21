@@ -72,21 +72,24 @@ class MagneticUniformSource(BaseSrc):
             src[:, 1] = self.amplitude
         elif self.orientation == "z":
             src[:, 2] = self.amplitude
-        return mkvc(src)
+        return src.flatten()
 
 class MagneticFluxDensityReceiver:
-    def __init__(self, locations, components):
+    def __init__(self, locations, components=None):
         if locations.shape[1] != 3:
             raise ValueError(
                 f"The location must be (npoints, 3), but the input shape is {locations.shape}"
             )
         self._locations = locations
 
-        for component in components:
-            if component.lower() not in ["x", "y", "z"]:
-                raise ValueError(
-                    f"Components must be 'x', 'y' or 'z', not {component}"
-                )
+        if components is None:
+            components = ["x", "y", "z"]
+        else:
+            for component in components:
+                if component.lower() not in ["x", "y", "z"]:
+                    raise ValueError(
+                        f"Components must be 'x', 'y' or 'z', not {component}"
+                    )
         self._components = components
 
     @property

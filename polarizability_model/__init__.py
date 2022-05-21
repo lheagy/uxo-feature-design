@@ -3,3 +3,4 @@ from .survey import (
     Survey, MagneticControlledSource, MagneticUniformSource,
     MagneticFluxDensityReceiver
 )
+from .inversion import Inversion
