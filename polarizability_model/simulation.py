@@ -4,7 +4,9 @@ import warnings
 
 from SimPEG import maps
 from SimPEG.simulation import BaseSimulation
+from pymatsolver import Pardiso as Solver
 
+from .survey import component_dictionary
 
 class SimulationPolarizabilityModel(BaseSimulation):
 
@@ -21,6 +23,7 @@ class SimulationPolarizabilityModel(BaseSimulation):
         if mapping is None:
             mapping = maps.IdentityMap(nP=self._nC*3)
         self._mapping = mapping
+        self._solver = Solver
 
     @property
     def locations(self):
@@ -39,6 +42,10 @@ class SimulationPolarizabilityModel(BaseSimulation):
         return self._survey
 
     @property
+    def solver(self):
+        return self._solver
+
+    @property
     def G(self):
         if getattr(self, "_G", None) is None:
             locations = self.locations
@@ -48,21 +55,22 @@ class SimulationPolarizabilityModel(BaseSimulation):
                 # NOTE: Hard-coded for only one type of receivers
                 receivers = src.receiver_list[0]
                 vector_distance = (
-                    receivers.locations[None, :, :] - locations[:, None, :])
+                    receivers.locations[None, :, :] - locations[:, None, :]
+                )
                 distance = np.linalg.norm(vector_distance, axis=2)
                 rhat = vector_distance / distance[:, :, None]
 
-                receiver_components = np.zeros((0, 3))
+                receiver_components = np.zeros((0, len(receivers.components)))
 
-                for i, comp in enumerate(["x", "y", "z"]):
+                for comp in receivers.components:
                     if comp in receivers.components:
                         e = np.zeros(3)
-                        e[i] = 1
+                        e[component_dictionary[comp]] = 1
                         receiver_components = np.vstack(
                             [receiver_components, e])
 
                 G.append(
-                    mu_0 / (4*np.pi) * np.vstack([(
+                    1 / (4*np.pi) * np.vstack([(
                         receiver_components @
                         np.hstack([
                             1/distance[j, i]**3 * (3*np.outer(rhat[j, i, :], rhat[j, i, :]) - np.eye(3))
@@ -78,6 +86,7 @@ class SimulationPolarizabilityModel(BaseSimulation):
         return [src.eval(self.locations) * polarizabilities for src in self.survey.source_list]
 
     def fields(self, m):
+        # self.model = m
         G_list = self.G
         m_list = self.magnetization(m)
 
@@ -87,15 +96,18 @@ class SimulationPolarizabilityModel(BaseSimulation):
 
         return [G @ m for G, m in zip(G_list, m_list)]
 
-    def dpred(self, m):
+    def dpred(self, m, f=None):
+        # self.model = m
         return np.hstack(self.fields(m))
 
     def Jvec(self, m, v, f=None):
+        # self.model = m
         G_list = self.G
         src_v = self.magnetization(v)
         return np.hstack([G @ vec for G, vec in zip(G_list, src_v)])
 
     def Jtvec(self, m, v, f=None):
+        # self.model = m
         G_list = self.G
         v_list = [v[i*src.nD:(i+1)*src.nD]
                   for i, src in enumerate(self.survey.source_list)]

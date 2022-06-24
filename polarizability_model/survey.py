@@ -1,8 +1,12 @@
+from operator import inv
 import numpy as np
 
 from discretize.utils import mkvc
 from geoana.em.static import LineCurrentFreeSpace
 from SimPEG.survey import BaseSrc, BaseSurvey, BaseRx
+
+component_dictionary = {"x": 0, "y": 1, "z": 2}
+inv_component_dictionary = dict((v, k) for k, v in component_dictionary.items())
 
 class MagneticControlledSource(BaseSrc):
 
@@ -37,13 +41,14 @@ class MagneticControlledSource(BaseSrc):
 
         # if same as last time, don't re-evaluate
         if getattr(self, "_eval_locations", None) is not None:
-            if np.allclose(self._eval_locations, locations):
-                return self._magnetic_flux_density
+            if len(self._eval_locations) == len(locations):
+                if np.allclose(self._eval_locations, locations):
+                    return self._magnetic_field
 
         self._eval_locations = locations
-        self._magnetic_flux_density = mkvc(self._line_current_source.magnetic_flux_density(locations))
+        self._magnetic_field = self._line_current_source.magnetic_field(locations).flatten()
 
-        return self._magnetic_flux_density
+        return self._magnetic_field
 
 class MagneticUniformSource(BaseSrc):
     def __init__(self, receiver_list=None, orientation="z", amplitude=1):
@@ -66,12 +71,7 @@ class MagneticUniformSource(BaseSrc):
 
     def eval(self, locations):
         src = np.zeros_like(locations)
-        if self.orientation == "x":
-            src[:, 0] = self.amplitude
-        elif self.orientation == "y":
-            src[:, 1] = self.amplitude
-        elif self.orientation == "z":
-            src[:, 2] = self.amplitude
+        src[:, component_dictionary[self.orientation]] = self.amplitude
         return src.flatten()
 
 class MagneticFluxDensityReceiver:
@@ -85,12 +85,23 @@ class MagneticFluxDensityReceiver:
         if components is None:
             components = ["x", "y", "z"]
         else:
-            for component in components:
-                if component.lower() not in ["x", "y", "z"]:
-                    raise ValueError(
-                        f"Components must be 'x', 'y' or 'z', not {component}"
-                    )
+            for i, component in enumerate(components):
+                if isinstance(component, str):
+                    if component.lower() not in component_dictionary.keys():
+                        raise ValueError(
+                            f"Components must be 'x', 'y' or 'z', not {component}"
+                        )
+                elif component in [0, 1, 2]:
+                    c = inv_component_dictionary[component]
+                    components[i] = c
+                else:
+                    if component.lower() not in component_dictionary.keys():
+                        raise ValueError(
+                            f"Components must be 'x', 'y' or 'z', not {component}"
+                        )
+
         self._components = components
+
 
     @property
     def locations(self):

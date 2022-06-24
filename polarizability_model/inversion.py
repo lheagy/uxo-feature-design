@@ -1,5 +1,7 @@
 import numpy as np
+import scipy.sparse as sp
 from pymatsolver import Pardiso as Solver
+from discretize.utils import is_scalar, sdiag
 
 class Inversion:
     def __init__(self, sim, data, noise_floor, beta=None):
@@ -18,8 +20,6 @@ class Inversion:
 
     @noise_floor.setter
     def noise_floor(self, value):
-        if value <= 0:
-            raise ValueError("noise_floor must be larger than 0")
         if getattr(self, "_Wd", None) is not None:
             self._Wd = None
         if getattr(self, "_WdG", None) is not None:
@@ -35,13 +35,16 @@ class Inversion:
     @property
     def Wd(self):
         if getattr(self, "_Wd", None) is None:
-            self._Wd = Wd = (1./self.noise_floor) * np.eye(self._sim.survey.nD)
+            if is_scalar(self.noise_floor):
+                self._Wd = (1./self.noise_floor) * np.eye(self._sim.survey.nD)
+            else:
+                self._Wd = sdiag(1./self.noise_floor)
         return self._Wd
 
     @property
     def G(self):
         if getattr(self, "_G", None) is None:
-            self._G = np.vstack(self.sim.G)
+            self._G = np.vstack(self._sim.G)
         return self._G
 
     def _set_WdG(self):
@@ -51,34 +54,35 @@ class Inversion:
     @property
     def phi_d_matrix(self):
         if getattr(self, "_WdG", None) is None:
-            self._setWdG()
+            self._set_WdG()
         if getattr(self, "_WdG2", None) is None:
             self._WdG2 = self._WdG.T @ self._WdG
         return self._WdG2
 
     @property
     def regularization_matrix(self):
-        return np.eye(self.sim.mapping.nP)
+        return np.eye(self._sim.mapping.nP)
 
     def get_linear_system(self):
-        return self.phi_d_matrix + self.beta * self.regularization_matrix
+        return self.phi_d_matrix + self._beta * self.regularization_matrix
 
     @property
     def rhs(self):
         if getattr(self, "_rhs", None) is None:
             if getattr(self, "_WdG", None) is None:
-                self._setWdG()
+                self._set_WdG()
             self._rhs = self._WdG.T @ self.Wd @ self.data
+        return self._rhs
 
     def _estimate_beta(self, beta_fact):
-        mtest = np.random.randn(self.sim.mapping.nP)
+        mtest = np.random.randn(self._sim.mapping.nP)
         phi_d_tmp = self.phi_d_matrix @ mtest
         phi_m_tmp = self.regularization_matrix @ mtest
         return beta_fact * np.linalg.norm(phi_d_tmp) / np.linalg.norm(phi_m_tmp)
 
     def _solve_for_m(self):
         A = self.get_linear_system()
-        Ainv = Solver(A)
+        Ainv = Solver(sp.csr_matrix(A))
         rhs = self.rhs
         return Ainv * rhs
 
