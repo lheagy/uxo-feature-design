@@ -70,6 +70,7 @@ class SimulationPolarizabilityModel(BaseSimulation):
                             [receiver_components, e])
 
                 G.append(
+                    receivers.area *
                     1 / (4*np.pi) * np.vstack([(
                         receiver_components @
                         np.hstack([
@@ -77,7 +78,8 @@ class SimulationPolarizabilityModel(BaseSimulation):
                             for j in range(locations.shape[0])
                         ])
                     ) for i in range(rhat.shape[1])
-                    ]))
+                    ])
+                )
             self._G = G
         return self._G
 

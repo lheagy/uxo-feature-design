@@ -75,7 +75,7 @@ class MagneticUniformSource(BaseSrc):
         return src.flatten()
 
 class MagneticFluxDensityReceiver:
-    def __init__(self, locations, components=None):
+    def __init__(self, locations, components=None, area=1):
         if locations.shape[1] != 3:
             raise ValueError(
                 f"The location must be (npoints, 3), but the input shape is {locations.shape}"
@@ -101,7 +101,11 @@ class MagneticFluxDensityReceiver:
                         )
 
         self._components = components
+        self._area = area
 
+    @property
+    def area(self):
+        return self._area
 
     @property
     def locations(self):
