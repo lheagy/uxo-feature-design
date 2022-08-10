@@ -85,7 +85,7 @@ class SimulationPolarizabilityModel(BaseSimulation):
 
     def magnetization(self, m, adjoint=False):
         polarizabilities = self.mapping * m
-        return [src.eval(self.locations) * polarizabilities for src in self.survey.source_list]
+        return [polarizabilities @ src.eval(self.locations) for src in self.survey.source_list]
 
     def fields(self, m):
         # self.model = m
